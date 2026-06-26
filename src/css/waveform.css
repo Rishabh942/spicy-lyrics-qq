@@ -1,0 +1,196 @@
+/* QQ Music Style Waveform Seekbar */
+
+/* Audio Visualizer underneath MediaContent */
+#SpicyLyricsPage .ContentBox .NowBar .Timeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.TimelineSliderContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+/* Audio Visualizer underneath MediaContent */
+.AudioVisualizer {
+  height: 24px;
+  width: 100%;
+  position: relative;
+  margin-top: 12px;
+}
+
+.AudioVisualizer .WaveformWrapper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  pointer-events: none;
+}
+
+.WaveformWrapper.Played {
+  clip-path: inset(0 calc(100% - (var(--SliderProgress, 0) * 100%)) 0 0);
+  z-index: 2;
+}
+
+/* Background/unplayed part of the waveform */
+.WaveformBar {
+  flex: 1;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  /* Use transform for hardware-accelerated scaling */
+  transform-origin: bottom;
+  height: 24px; /* Base height to scale from */
+  /* Remove transition to allow for smooth 60fps JS updates */
+  will-change: transform;
+}
+
+.WaveformWrapper.Played .WaveformBar {
+  /* Dynamic gradient or vibrant color based on loudness */
+  background-color: var(--spice-button-active, #1ed760);
+  /* The JS logic injects an inline style for transform: scaleY(...) */
+}
+
+.NowBarStatus__Open.Fullscreen .WaveformWrapper.Played .WaveformBar {
+  background-color: rgba(var(--HighContrastColor, 30, 215, 96), 1);
+  /* Change color based on intensity: */
+  filter: hue-rotate(calc(var(--loudness, 0) * -45deg)) saturate(calc(1 + var(--loudness, 0) * 0.5)) brightness(calc(0.8 + var(--loudness, 0) * 0.7));
+}
+
+/* QQ Music Aesthetic Layout Tweaks */
+#SpicyLyricsPage.Fullscreen .ContentBox .NowBar {
+  padding-bottom: 40px;
+}
+#SpicyLyricsPage.Fullscreen .ContentBox .NowBar .Header {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+#SpicyLyricsPage.Fullscreen .ContentBox .NowBar .Timeline {
+  margin-top: 16px;
+}
+#SpicyLyricsPage.Fullscreen .ContentBox .NowBar .Header .MediaBox {
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Track Metrics & Timbre */
+.TrackMetrics {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px; /* Increased from 12px for spacing */
+  font-size: 13px;
+  font-family: var(--font-family, system-ui, -apple-system, sans-serif);
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: opacity 0.3s ease;
+}
+
+.Metric {
+  display: inline-block;
+  transition: color 0.3s;
+}
+
+.Metric.Changed {
+  animation: MetricPulse 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  color: var(--spice-button-active, #1ed760);
+}
+
+@keyframes MetricPulse {
+  0% { transform: scale(1); opacity: 1; }
+  30% { transform: scale(1.25); text-shadow: 0 0 12px currentColor; opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.TrackMetrics .MetricDivider {
+  opacity: 0.4;
+}
+
+/* Timbre distinct heatmap blocks */
+.TimbreVisualizer {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-left: 12px;
+  height: 16px;
+  width: 72px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  filter: blur(0.6px) contrast(1.1);
+}
+
+#SpicyLyricsPage .TrackMetrics .LosslessMoniker {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 1px;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+  margin-left: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.TimbreBlock {
+  flex: 1;
+  height: 100%;
+  /* Match the fire heatmap style: dark red to orange to yellow/white */
+  background-color: hsl(calc(var(--t-val, 0) * 60), 100%, calc(var(--t-val, 0) * 50% + 20%));
+  transition: background-color 0.1s ease-out;
+}
+
+/* Ensure Metadata adjusts cleanly for the new row and prevents text squishing */
+#SpicyLyricsPage.Fullscreen .ContentBox .NowBar .Header .Metadata {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 14cqh !important;
+  gap: 0px !important;
+  margin-top: 16px !important; /* Push title away from waveform */
+}
+#SpicyLyricsPage.Fullscreen .ContentBox .NowBar .Header .Metadata .SongName {
+  flex-shrink: 0;
+  margin-bottom: -6px; /* Pull artists closer to title */
+}
+#SpicyLyricsPage.Fullscreen .ContentBox .NowBar .Header .Metadata .Artists,
+#SpicyLyricsPage.Fullscreen .ContentBox .NowBar .Header .Metadata .TrackMetrics {
+  flex-shrink: 0;
+}
+
+/* Shift everything up slightly so the bottom isn't squished */
+#SpicyLyricsPage.Fullscreen .ContentBox .NowBar {
+  padding-top: calc(50cqh - var(--NowBarWidth) * 0.75) !important;
+}
+
+/* Piano Roll Container */
+#SpicyLyricsPage .PianoRollContainer {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 4;
+}
+
+#SpicyLyricsPage .PianoRollContainer.hidden {
+  display: none !important;
+}
+
+#SpicyLyricsPage .PianoRollContainer canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

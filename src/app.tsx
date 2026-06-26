@@ -10,6 +10,7 @@ import "./css/Lyrics/main.css";
 import "./css/Lyrics/Mixed.css";
 import "./css/Loaders/LoaderContainer.css";
 import "./css/font-pack/font-pack.css";
+import "./css/waveform.css";
 
 import ApplyDynamicBackground, {
   GetStaticBackground,

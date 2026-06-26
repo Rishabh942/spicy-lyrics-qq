@@ -19,6 +19,8 @@ export interface Segment extends TimeInterval {
     loudness_max_time: number;
     loudness_max: number;
     loudness_end?: number;
+    pitches: number[];
+    timbre: number[];
 }
 
 export interface TrackData {

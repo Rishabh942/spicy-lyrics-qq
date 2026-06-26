@@ -4,6 +4,7 @@ import {
   $minimalLyricsMode,
   $simpleLyricsMode,
   $simpleLyricsModeRenderingType,
+  $hideLyricsInFullscreen,
 } from "../../../utils/stores.ts";
 import { matches, Row, Select, SectionTitle, Toggle } from "./components.tsx";
 
@@ -60,6 +61,15 @@ export default function LyricsSection({ query, sectionFilter }: Props) {
           description="Hides sung lyrics lines in Fullscreen and Cinema Mode"
         >
           <Toggle checked={minimalLyricsMode} onChange={(v) => $minimalLyricsMode.set(v)} />
+        </Row>
+      )}
+
+      {matches(query, "Hide Lyrics in Fullscreen", "Disables lyrics completely in Fullscreen and Cinema Mode") && (
+        <Row
+          label="Hide Lyrics in Fullscreen"
+          description="Disables lyrics completely in Fullscreen and Cinema Mode"
+        >
+          <Toggle checked={useStore($hideLyricsInFullscreen)} onChange={(v) => $hideLyricsInFullscreen.set(v)} />
         </Row>
       )}
     </>

@@ -27,6 +27,8 @@ import {
   $skipSpicyFont,
   $ttmlMakerMode,
   $viewControlsPosition,
+  $hideLyricsInFullscreen,
+  $pianoRollMode,
 } from "../../utils/stores.ts";
 import Global from "../Global/Global.ts";
 import Session from "../Global/Session.ts";
@@ -57,6 +59,7 @@ import {
 } from "../Utils/SidebarLyrics.ts";
 import TransferElement from "../Utils/TransferElement.ts";
 import { IsPIP, _IsPIP_after, ClosePopupLyrics } from "../Utils/PopupLyrics.ts";
+import { PianoRollVisualizer } from "../Utils/PianoRollVisualizer.ts";
 import { CleanUpIsByCommunity } from "../../utils/Lyrics/Applyer/Credits/ApplyIsByCommunity.tsx";
 import { OpenLyricsDBPanel } from "../../utils/openLyricsDBPanel.tsx";
 import { openSettingsPanel } from "../../utils/settings.ts";
@@ -80,6 +83,7 @@ export const Tooltips: {
   NowBarSideToggle: TippyInstance | null;
   LyricsManager: TippyInstance | null;
   Settings: TippyInstance | null;
+  LyricsToggle: TippyInstance | null;
 } = {
   Close: null,
   NowBarToggle: null,
@@ -88,6 +92,7 @@ export const Tooltips: {
   NowBarSideToggle: null,
   LyricsManager: null,
   Settings: null,
+  LyricsToggle: null,
 };
 
 const PageView = {
@@ -118,6 +123,7 @@ export const GetPageRoot = () =>
 
 let PageResizeListener: ResizeObserver | null = null;
 export let PageContainer: HTMLElement | null = null;
+export let activePianoRollVisualizer: PianoRollVisualizer | null = null;
 
 async function OpenPage(
   AppendTo: HTMLElement | undefined = undefined,
@@ -167,6 +173,17 @@ async function OpenPage(
                             <div class="Artists">
                                 <span></span>
                             </div>
+                            <div class="TrackMetrics">
+                                <span class="Metric" id="MetricTempo">120 BPM</span>
+                                <span class="MetricDivider">·</span>
+                                <span class="Metric" id="MetricKey">C Major</span>
+                                <span class="MetricDivider">·</span>
+                                <span class="Metric" id="MetricSig">4/4</span>
+                                <span class="LosslessMoniker">LOSSLESS</span>
+                                <div class="TimbreVisualizer">
+                                    ${Array.from({length: 12}).map((_, i) => `<div class="TimbreBlock" style="--t-index: ${i}"></div>`).join('')}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -176,6 +193,9 @@ async function OpenPage(
                     <div id="DotLoader"></div>
                 </div>
                 <div class="LyricsContent ScrollbarScrollable"></div>
+            </div>
+            <div class="PianoRollContainer hidden">
+                <canvas id="PianoRollCanvas"></canvas>
             </div>
             <div class="ViewControls"></div>
         </div>
@@ -302,6 +322,12 @@ async function OpenPage(
 
   PageContainer = elem;
 
+  const pianoRollCanvas = elem.querySelector<HTMLCanvasElement>("#PianoRollCanvas");
+  if (pianoRollCanvas) {
+    activePianoRollVisualizer = new PianoRollVisualizer(pianoRollCanvas);
+    activePianoRollVisualizer.Apply();
+  }
+
   const contentType = SpotifyPlayer.GetContentType();
   if (contentType === "episode") {
     elem?.classList.add("episode-content-type");
@@ -350,8 +376,14 @@ async function DestroyPage() {
   KawarpMap.delete("lpagebg");
   ResetLastLine();
   CleanupScrollEvents();
-  PageResizeListener?.disconnect(); // Disconnect the observer
+  PageResizeListener?.disconnect();
   PageView.IsOpened = false;
+
+  if (activePianoRollVisualizer) {
+    activePianoRollVisualizer.CleanUp();
+    activePianoRollVisualizer = null;
+  }
+  
   $lyricsContainerExists.set(false);
   DestroyAllLyricsContainers();
   CleanUpIsByCommunity();
@@ -459,6 +491,16 @@ function AppendViewControls(ReAppend: boolean = false) {
                   ? Icons.Fullscreen
                   : Icons.CloseFullscreen
               }</button>`)
+            : ""
+        }
+        ${
+          Fullscreen.IsOpen || Fullscreen.CinemaViewOpen
+            ? `<button id="LyricsToggleBtn" class="ViewControl">${Icons.LyricsPage}</button>`
+            : ""
+        }
+        ${
+          Fullscreen.IsOpen || Fullscreen.CinemaViewOpen
+            ? `<button id="PianoRollToggleBtn" class="ViewControl">${Icons.PianoRoll}</button>`
             : ""
         }
         ${
@@ -576,6 +618,54 @@ function AppendViewControls(ReAppend: boolean = false) {
         });
       } catch (err) {
         controlsLogger.warn("Failed to setup Compact Mode tooltip", err);
+      }
+    }
+
+    const lyricsToggleBtn = elem.querySelector("#LyricsToggleBtn");
+    if (lyricsToggleBtn) {
+      try {
+        if (!isPip) {
+          Tooltips.LyricsToggle = Spicetify.Tippy(lyricsToggleBtn, {
+            ...Spicetify.TippyProps,
+            content: $hideLyricsInFullscreen.get() ? "Show Lyrics" : "Hide Lyrics",
+          });
+        }
+        lyricsToggleBtn.addEventListener("click", () => {
+          $hideLyricsInFullscreen.set(!$hideLyricsInFullscreen.get());
+          setTimeout(() => AppendViewControls(true), 50);
+        });
+      } catch (err) {
+        controlsLogger.warn("Failed to setup LyricsToggle tooltip", err);
+      }
+    }
+
+    const pianoRollToggleBtn = elem.querySelector("#PianoRollToggleBtn");
+    if (pianoRollToggleBtn) {
+      try {
+        if (!isPip) {
+          Tooltips.PianoRollToggle = Spicetify.Tippy(pianoRollToggleBtn, {
+            ...Spicetify.TippyProps,
+            content: $pianoRollMode.get() ? "Show Lyrics Mode" : "Show Piano Roll Mode",
+          });
+        }
+        pianoRollToggleBtn.addEventListener("click", () => {
+          $pianoRollMode.set(!$pianoRollMode.get());
+          setTimeout(() => AppendViewControls(true), 50);
+        });
+      } catch (err) {
+        controlsLogger.warn("Failed to setup PianoRollToggle tooltip", err);
+      }
+    }
+
+    const lyricsContainer = PageContainer?.querySelector<HTMLElement>(".LyricsContainer");
+    const pianoRollContainer = PageContainer?.querySelector<HTMLElement>(".PianoRollContainer");
+    if (lyricsContainer && pianoRollContainer) {
+      if ($pianoRollMode.get()) {
+        lyricsContainer.style.display = "none";
+        pianoRollContainer.style.display = "block";
+      } else {
+        lyricsContainer.style.display = "";
+        pianoRollContainer.style.display = "none";
       }
     }
 

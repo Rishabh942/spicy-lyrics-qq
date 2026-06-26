@@ -1,6 +1,6 @@
 import { GetCurrentLyricsContainerInstance } from "../../utils/Lyrics/Applyer/CreateLyricsContainer.ts";
 import { ResetLastLine } from "../../utils/Scrolling/ScrollToActiveLine.ts";
-import { $currentLyricsData } from "../../utils/stores.ts";
+import { $currentLyricsData, $hideLyricsInFullscreen } from "../../utils/stores.ts";
 import { $forceCompactMode, $isNowBarOpen } from "../../utils/uiState.ts";
 import Global from "../Global/Global.ts";
 import PageView, { Compactify, GetPageRoot, PageContainer, Tooltips } from "../Pages/PageView.ts";
@@ -26,6 +26,8 @@ const controlsOpacitySpring = new Spring(0, 2, 2, 0); // Goal: 0.65
 const artworkBrightnessSpring = new Spring(0, 2, 2, 0); // Goal: 0.78
 
 let animationLastTimestamp: number | undefined;
+let hideLyricsUnsubscribe: (() => void) | undefined;
+let keydownListener: ((e: KeyboardEvent) => void) | undefined;
 
 let visualsApplied = false;
 let pageHover = false;
@@ -271,6 +273,31 @@ function Open(skipDocumentFullscreen: boolean = false, moveElement: boolean = tr
 
     Global.Event.evoke("fullscreen:open", null);
   }
+  
+  if (!hideLyricsUnsubscribe) {
+    hideLyricsUnsubscribe = $hideLyricsInFullscreen.listen((hide) => {
+      const NoLyrics = $currentLyricsData.get().includes("NO_LYRICS");
+      if ((hide || NoLyrics) && !IsCompactMode()) {
+        PageContainer?.querySelector(".ContentBox .LyricsContainer")?.classList.add("Hidden");
+        PageContainer?.querySelector<HTMLElement>(".ContentBox")?.classList.add("LyricsHidden");
+      } else {
+        PageContainer?.querySelector(".ContentBox .LyricsContainer")?.classList.remove("Hidden");
+        PageContainer?.querySelector<HTMLElement>(".ContentBox")?.classList.remove("LyricsHidden");
+      }
+    });
+  }
+
+  if (!keydownListener) {
+    keydownListener = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key.toLowerCase() === "l" && Fullscreen.IsOpen) {
+        $hideLyricsInFullscreen.set(!$hideLyricsInFullscreen.get());
+      }
+    };
+    document.addEventListener("keydown", keydownListener);
+  }
+
   setTimeout(() => {
     if (IsPIP) return;
 
@@ -286,7 +313,8 @@ function Open(skipDocumentFullscreen: boolean = false, moveElement: boolean = tr
     PageView.AppendViewControls(true);
 
     const NoLyrics = $currentLyricsData.get().includes("NO_LYRICS");
-    if (NoLyrics && !IsCompactMode()) {
+    const HideLyrics = $hideLyricsInFullscreen.get();
+    if ((NoLyrics || HideLyrics) && !IsCompactMode()) {
       SpicyPage
         ?.querySelector(".ContentBox .LyricsContainer")
         ?.classList.add("Hidden");
@@ -346,8 +374,18 @@ async function Close(isPip: boolean = false) {
         handleFullscreenExit()
       //}, !wasCinemaMode ? 70 : 0);
 
+      if (hideLyricsUnsubscribe) {
+        hideLyricsUnsubscribe();
+        hideLyricsUnsubscribe = undefined;
+      }
+      if (keydownListener) {
+        document.removeEventListener("keydown", keydownListener);
+        keydownListener = undefined;
+      }
+
       const NoLyrics = $currentLyricsData.get().includes("NO_LYRICS");
-      if (NoLyrics) {
+      const HideLyrics = $hideLyricsInFullscreen.get();
+      if (NoLyrics || HideLyrics) {
         SpicyPage
           ?.querySelector(".ContentBox .LyricsContainer")
           ?.classList.remove("Hidden");

@@ -1,4 +1,5 @@
 import BlobURLMaker from "../../utils/BlobURLMaker.ts";
+import { AudioVisualizer } from "./AudioVisualizer.ts";
 import { GetCurrentLyricsContainerInstance } from "../../utils/Lyrics/Applyer/CreateLyricsContainer.ts";
 import { SongProgressBar } from "./../../utils/Lyrics/SongProgressBar.ts";
 import { QueueForceScroll, ResetLastLine } from "../../utils/Scrolling/ScrollToActiveLine.ts";
@@ -406,13 +407,23 @@ function OpenNowBar(skipSaving: boolean = false) {
         const TimelineElem = document.createElement("div");
         ActiveSongProgressBarInstance_Map.set("TimeLineElement", TimelineElem);
         TimelineElem.classList.add("Timeline");
+
+        const numBars = 45;
+        const barsHtml = Array.from({length: numBars}).map(() => '<div class="WaveformBar"></div>').join('');
+
         TimelineElem.innerHTML = `
-                    <span class="Time Position">${songProgressBar.GetFormattedPosition() ?? "0:00"}</span>
-                    <div class="SliderBar" style="--SliderProgress: ${songProgressBar.GetProgressPercentage() ?? 0}">
-                        <div class="Handle"></div>
-                    </div>
-                    <span class="Time Duration">${songProgressBar.GetFormattedDuration() ?? "0:00"}</span>
-                `;
+            <div class="TimelineSliderContainer">
+                <span class="Time Position">${songProgressBar.GetFormattedPosition() ?? "0:00"}</span>
+                <div class="SliderBar" style="--SliderProgress: ${songProgressBar.GetProgressPercentage() ?? 0}">
+                    <div class="Handle"></div>
+                </div>
+                <span class="Time Duration">${songProgressBar.GetFormattedDuration() ?? "0:00"}</span>
+            </div>
+        `;
+        
+        const visualizer = new AudioVisualizer();
+        visualizer.Apply();
+        TimelineElem.appendChild(visualizer.GetElement());
 
         const SliderBar = TimelineElem.querySelector<HTMLElement>(".SliderBar");
         if (!SliderBar) {
@@ -602,6 +613,9 @@ function OpenNowBar(skipSaving: boolean = false) {
           timelineMaid.Destroy();
           const progressBar = ActiveSongProgressBarInstance_Map.get("SongProgressBar_ClassInstance");
           if (progressBar) progressBar.Destroy();
+          
+          visualizer.CleanUp();
+
           if (TimelineElem.parentNode) TimelineElem.parentNode.removeChild(TimelineElem);
           ActiveSongProgressBarInstance_Map.clear();
         };
@@ -630,6 +644,8 @@ function OpenNowBar(skipSaving: boolean = false) {
       if (ActiveSetupSongProgressBarInstance) {
         ActiveSetupSongProgressBarInstance.Apply();
       }
+
+
 
       // Use a more reliable approach to add elements
       Whentil.When(

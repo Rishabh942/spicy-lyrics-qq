@@ -56,6 +56,7 @@ export const $minimalLyricsMode = persistAtom<boolean>("minimalLyricsMode", fals
 export const $skipSpicyFont = persistAtom<boolean>("skipSpicyFont", false);
 export const $showNpvDynamicBg = persistAtom<boolean>("showNpvDynamicBg", true);
 export const $lockedMediaBox = persistAtom<boolean>("lockedMediaBox", false);
+export const $hideLyricsInFullscreen = persistAtom<boolean>("hideLyricsInFullscreen", false);
 // $popupLyricsAllowed: stored as actual boolean "popupLyricsAllowed" in the settings blob.
 export const $popupLyricsAllowed = (() => {
   const initial: boolean =
@@ -76,6 +77,7 @@ export const $timelineOutsideMediaContent = persistAtom<boolean>(
 );
 // Playback timing offset in milliseconds (bipolar: negative = earlier, positive = later)
 export const $playbackOffset = persistAtom<number>("playbackOffset", 0);
+export const $pianoRollMode = persistAtom<boolean>("pianoRollMode", false);
 
 // Version atom — NOT persisted, set once at startup
 export const $spicyLyricsVersion = atom<string>(
