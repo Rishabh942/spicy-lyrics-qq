@@ -188,13 +188,13 @@ async function OpenPage(
                     </div>
                 </div>
             </div>
-            <div class="LyricsContainer">
+            <div class="LyricsContainer ${$pianoRollMode.get() ? "Hidden" : ""}">
                 <div class="loaderContainer">
                     <div id="DotLoader"></div>
                 </div>
                 <div class="LyricsContent ScrollbarScrollable"></div>
             </div>
-            <div class="PianoRollContainer hidden">
+            <div class="PianoRollContainer ${$pianoRollMode.get() ? "" : "hidden"}">
                 <canvas id="PianoRollCanvas"></canvas>
             </div>
             <div class="ViewControls"></div>
@@ -631,7 +631,12 @@ function AppendViewControls(ReAppend: boolean = false) {
           });
         }
         lyricsToggleBtn.addEventListener("click", () => {
-          $hideLyricsInFullscreen.set(!$hideLyricsInFullscreen.get());
+          if ($pianoRollMode.get()) {
+            $pianoRollMode.set(false);
+            $hideLyricsInFullscreen.set(false);
+          } else {
+            $hideLyricsInFullscreen.set(!$hideLyricsInFullscreen.get());
+          }
           setTimeout(() => AppendViewControls(true), 50);
         });
       } catch (err) {
@@ -649,7 +654,12 @@ function AppendViewControls(ReAppend: boolean = false) {
           });
         }
         pianoRollToggleBtn.addEventListener("click", () => {
-          $pianoRollMode.set(!$pianoRollMode.get());
+          if (!$pianoRollMode.get()) {
+            $hideLyricsInFullscreen.set(true);
+            $pianoRollMode.set(true);
+          } else {
+            $pianoRollMode.set(false);
+          }
           setTimeout(() => AppendViewControls(true), 50);
         });
       } catch (err) {
@@ -657,17 +667,8 @@ function AppendViewControls(ReAppend: boolean = false) {
       }
     }
 
-    const lyricsContainer = PageContainer?.querySelector<HTMLElement>(".LyricsContainer");
-    const pianoRollContainer = PageContainer?.querySelector<HTMLElement>(".PianoRollContainer");
-    if (lyricsContainer && pianoRollContainer) {
-      if ($pianoRollMode.get()) {
-        lyricsContainer.style.display = "none";
-        pianoRollContainer.style.display = "block";
-      } else {
-        lyricsContainer.style.display = "";
-        pianoRollContainer.style.display = "none";
-      }
-    }
+    // Note: Visibility of LyricsContainer and PianoRollContainer is centrally managed 
+    // by updateVisibility in Fullscreen.ts, so we don't manually toggle classes here.
 
     const romanizationToggle = elem.querySelector("#RomanizationToggle");
     if (romanizationToggle) {

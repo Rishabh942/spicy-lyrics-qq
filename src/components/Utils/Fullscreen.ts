@@ -1,6 +1,6 @@
 import { GetCurrentLyricsContainerInstance } from "../../utils/Lyrics/Applyer/CreateLyricsContainer.ts";
 import { ResetLastLine } from "../../utils/Scrolling/ScrollToActiveLine.ts";
-import { $currentLyricsData, $hideLyricsInFullscreen } from "../../utils/stores.ts";
+import { $currentLyricsData, $hideLyricsInFullscreen, $pianoRollMode } from "../../utils/stores.ts";
 import { $forceCompactMode, $isNowBarOpen } from "../../utils/uiState.ts";
 import Global from "../Global/Global.ts";
 import PageView, { Compactify, GetPageRoot, PageContainer, Tooltips } from "../Pages/PageView.ts";
@@ -27,6 +27,7 @@ const artworkBrightnessSpring = new Spring(0, 2, 2, 0); // Goal: 0.78
 
 let animationLastTimestamp: number | undefined;
 let hideLyricsUnsubscribe: (() => void) | undefined;
+let pianoRollUnsubscribe: (() => void) | undefined;
 let keydownListener: ((e: KeyboardEvent) => void) | undefined;
 
 let visualsApplied = false;
@@ -274,17 +275,38 @@ function Open(skipDocumentFullscreen: boolean = false, moveElement: boolean = tr
     Global.Event.evoke("fullscreen:open", null);
   }
   
+  const updateVisibility = () => {
+    if (!Fullscreen.IsOpen) return;
+    const hide = $hideLyricsInFullscreen.get();
+    const isPianoRoll = $pianoRollMode.get();
+    const NoLyrics = $currentLyricsData.get().includes("NO_LYRICS");
+
+    const lyricsContainer = PageContainer?.querySelector(".ContentBox .LyricsContainer");
+    const contentBox = PageContainer?.querySelector<HTMLElement>(".ContentBox");
+    const pianoRollContainer = PageContainer?.querySelector<HTMLElement>(".PianoRollContainer");
+
+    if (isPianoRoll) {
+        lyricsContainer?.classList.add("Hidden");
+        contentBox?.classList.remove("LyricsHidden");
+        pianoRollContainer?.classList.remove("hidden");
+    } else if (hide || NoLyrics) {
+        lyricsContainer?.classList.add("Hidden");
+        if (!IsCompactMode()) {
+            contentBox?.classList.add("LyricsHidden");
+        }
+        pianoRollContainer?.classList.add("hidden");
+    } else {
+        lyricsContainer?.classList.remove("Hidden");
+        contentBox?.classList.remove("LyricsHidden");
+        pianoRollContainer?.classList.add("hidden");
+    }
+  };
+
   if (!hideLyricsUnsubscribe) {
-    hideLyricsUnsubscribe = $hideLyricsInFullscreen.listen((hide) => {
-      const NoLyrics = $currentLyricsData.get().includes("NO_LYRICS");
-      if ((hide || NoLyrics) && !IsCompactMode()) {
-        PageContainer?.querySelector(".ContentBox .LyricsContainer")?.classList.add("Hidden");
-        PageContainer?.querySelector<HTMLElement>(".ContentBox")?.classList.add("LyricsHidden");
-      } else {
-        PageContainer?.querySelector(".ContentBox .LyricsContainer")?.classList.remove("Hidden");
-        PageContainer?.querySelector<HTMLElement>(".ContentBox")?.classList.remove("LyricsHidden");
-      }
-    });
+    hideLyricsUnsubscribe = $hideLyricsInFullscreen.listen(updateVisibility);
+  }
+  if (!pianoRollUnsubscribe) {
+    pianoRollUnsubscribe = $pianoRollMode.listen(updateVisibility);
   }
 
   if (!keydownListener) {
@@ -292,7 +314,21 @@ function Open(skipDocumentFullscreen: boolean = false, moveElement: boolean = tr
       // Don't trigger if user is typing in an input field
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key.toLowerCase() === "l" && Fullscreen.IsOpen) {
-        $hideLyricsInFullscreen.set(!$hideLyricsInFullscreen.get());
+        const hideLyrics = $hideLyricsInFullscreen.get();
+        const pianoRoll = $pianoRollMode.get();
+        if (!hideLyrics && !pianoRoll) {
+            // Currently Lyrics mode -> cycle to Piano Roll
+            $hideLyricsInFullscreen.set(true);
+            $pianoRollMode.set(true);
+        } else if (hideLyrics && pianoRoll) {
+            // Currently Piano Roll mode -> cycle to None (Hidden)
+            $hideLyricsInFullscreen.set(true);
+            $pianoRollMode.set(false);
+        } else {
+            // Currently None (Hidden) -> cycle to Lyrics
+            $hideLyricsInFullscreen.set(false);
+            $pianoRollMode.set(false);
+        }
       }
     };
     document.addEventListener("keydown", keydownListener);
@@ -311,17 +347,7 @@ function Open(skipDocumentFullscreen: boolean = false, moveElement: boolean = tr
 
   setTimeout(() => {
     PageView.AppendViewControls(true);
-
-    const NoLyrics = $currentLyricsData.get().includes("NO_LYRICS");
-    const HideLyrics = $hideLyricsInFullscreen.get();
-    if ((NoLyrics || HideLyrics) && !IsCompactMode()) {
-      SpicyPage
-        ?.querySelector(".ContentBox .LyricsContainer")
-        ?.classList.add("Hidden");
-      SpicyPage
-        ?.querySelector<HTMLElement>(".ContentBox")
-        ?.classList.add("LyricsHidden");
-    }
+    updateVisibility();
   }, 75);
 
   GetCurrentLyricsContainerInstance()?.Resize();
@@ -336,6 +362,9 @@ async function Close(isPip: boolean = false) {
 
     Fullscreen.IsOpen = false;
     Fullscreen.CinemaViewOpen = false;
+    
+    // Disable Piano Roll universally when leaving fullscreen
+    $pianoRollMode.set(false);
 
     if (isPip) {
       SpicyPage.classList.remove("Fullscreen");
@@ -378,6 +407,10 @@ async function Close(isPip: boolean = false) {
         hideLyricsUnsubscribe();
         hideLyricsUnsubscribe = undefined;
       }
+      if (pianoRollUnsubscribe) {
+        pianoRollUnsubscribe();
+        pianoRollUnsubscribe = undefined;
+      }
       if (keydownListener) {
         document.removeEventListener("keydown", keydownListener);
         keydownListener = undefined;
@@ -385,13 +418,16 @@ async function Close(isPip: boolean = false) {
 
       const NoLyrics = $currentLyricsData.get().includes("NO_LYRICS");
       const HideLyrics = $hideLyricsInFullscreen.get();
-      if (NoLyrics || HideLyrics) {
+      if (NoLyrics || HideLyrics || $pianoRollMode.get()) {
         SpicyPage
           ?.querySelector(".ContentBox .LyricsContainer")
           ?.classList.remove("Hidden");
         SpicyPage
           ?.querySelector<HTMLElement>(".ContentBox")
           ?.classList.remove("LyricsHidden");
+        SpicyPage
+          ?.querySelector<HTMLElement>(".PianoRollContainer")
+          ?.classList.add("hidden");
         DeregisterNowBarBtn();
       }
 
